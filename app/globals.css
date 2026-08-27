@@ -116,3 +116,56 @@ html {
   background-size: 200% 200%;
   animation: gradientMove 3s ease infinite;
 }
+
+@keyframes teamFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.team-fade-up {
+  animation: teamFadeUp 0.55s ease-out both;
+}
+
+.team-fade-up-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.team-fade-up-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.team-fade-up-delay-3 {
+  animation-delay: 0.24s;
+}
+
+.team-fade-up-delay-4 {
+  animation-delay: 0.32s;
+}
+
+@keyframes teamShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.team-hero-glow {
+  background: radial-gradient(
+      1200px 280px at 10% -10%,
+      rgba(37, 99, 235, 0.18),
+      transparent 55%
+    ),
+    radial-gradient(
+      800px 220px at 90% 0%,
+      rgba(14, 165, 233, 0.12),
+      transparent 50%
+    );
+}

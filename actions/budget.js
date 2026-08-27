@@ -2,15 +2,14 @@
 
 import { connectToDatabase } from "@/lib/mongoose";
 import { revalidatePath } from "next/cache";
-import { User, Transaction, Budget } from "@/models/allModels";
-
-const DEMO_USER_ID = "demo-user-id";
+import { Transaction, Budget } from "@/models/allModels";
+import { checkUser } from "@/lib/checkUser";
 
 export async function getCurrentBudget(accountId) {
   try {
     await connectToDatabase();
 
-    const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+    const user = await checkUser();
     if (!user) throw new Error("User not found");
 
     const budget = await Budget.findOne({ userId: user._id }).lean();
@@ -52,7 +51,7 @@ export async function updateBudget(amount) {
   try {
     await connectToDatabase();
 
-    const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+    const user = await checkUser();
     if (!user) throw new Error("User not found");
 
     const updated = await Budget.findOneAndUpdate(

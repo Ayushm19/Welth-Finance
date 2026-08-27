@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const COLORS = [
@@ -32,43 +33,43 @@ const COLORS = [
   "#9FA8DA",
 ];
 
+function activityDate(transaction) {
+  return new Date(transaction.createdAt || transaction.date);
+}
+
 export function DashboardOverview({ accounts, transactions }) {
+  const defaultShared = accounts.find((a) => a.isShared);
+  const defaultPersonal = accounts.find((a) => a.isDefault) || accounts[0];
+
   const [selectedAccountId, setSelectedAccountId] = useState(
-    accounts.find((a) => a.isDefault)?._id || accounts[0]?._id
+    String(defaultShared?._id || defaultPersonal?._id || "")
   );
 
-  // Filter transactions for selected account
   const accountTransactions = transactions.filter(
-    (t) => t.accountId === selectedAccountId
+    (t) => String(t.accountId) === String(selectedAccountId)
   );
 
-  // Get recent transactions (last 5)
-  const recentTransactions = accountTransactions
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
+  const recentTransactions = [...accountTransactions]
+    .sort((a, b) => activityDate(b) - activityDate(a))
     .slice(0, 5);
 
-  // Calculate expense breakdown for current month
   const currentDate = new Date();
   const currentMonthExpenses = accountTransactions.filter((t) => {
-    const transactionDate = new Date(t.date);
+    if (t.type !== "EXPENSE") return false;
+    const d = activityDate(t);
     return (
-      t.type === "EXPENSE" &&
-      transactionDate.getMonth() === currentDate.getMonth() &&
-      transactionDate.getFullYear() === currentDate.getFullYear()
+      d.getMonth() === currentDate.getMonth() &&
+      d.getFullYear() === currentDate.getFullYear()
     );
   });
 
-  // Group expenses by category
   const expensesByCategory = currentMonthExpenses.reduce((acc, transaction) => {
-    const category = transaction.category;
-    if (!acc[category]) {
-      acc[category] = 0;
-    }
-    acc[category] += transaction.amount;
+    const category = transaction.category || "other";
+    if (!acc[category]) acc[category] = 0;
+    acc[category] += Number(transaction.amount) || 0;
     return acc;
   }, {});
 
-  // Format data for pie chart
   const pieChartData = Object.entries(expensesByCategory).map(
     ([category, amount]) => ({
       name: category,
@@ -76,9 +77,12 @@ export function DashboardOverview({ accounts, transactions }) {
     })
   );
 
+  const selectedAccount = accounts.find(
+    (a) => String(a._id) === String(selectedAccountId)
+  );
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {/* Recent Transactions Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-base font-normal">
@@ -88,13 +92,14 @@ export function DashboardOverview({ accounts, transactions }) {
             value={selectedAccountId}
             onValueChange={setSelectedAccountId}
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Select account" />
             </SelectTrigger>
             <SelectContent>
               {accounts.map((account) => (
-                <SelectItem key={account._id} value={account._id}>
+                <SelectItem key={account._id} value={String(account._id)}>
                   {account.name}
+                  {account.isShared ? " (shared)" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -102,6 +107,11 @@ export function DashboardOverview({ accounts, transactions }) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {selectedAccount?.isShared && (
+              <Badge variant="secondary" className="mb-1">
+                Shared team account
+              </Badge>
+            )}
             {recentTransactions.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">
                 No recent transactions
@@ -110,32 +120,30 @@ export function DashboardOverview({ accounts, transactions }) {
               recentTransactions.map((transaction) => (
                 <div
                   key={transaction._id}
-                  className="flex items-center justify-between"
+                  className="flex items-center justify-between gap-3"
                 >
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">
+                  <div className="space-y-1 min-w-0">
+                    <p className="text-sm font-medium leading-none truncate">
                       {transaction.description || "Untitled Transaction"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(transaction.date), "PP")}
+                      {format(activityDate(transaction), "PP")}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        "flex items-center",
-                        transaction.type === "EXPENSE"
-                          ? "text-red-500"
-                          : "text-green-500"
-                      )}
-                    >
-                      {transaction.type === "EXPENSE" ? (
-                        <ArrowDownRight className="mr-1 h-4 w-4" />
-                      ) : (
-                        <ArrowUpRight className="mr-1 h-4 w-4" />
-                      )}
-                      ${transaction.amount.toFixed(2)}
-                    </div>
+                  <div
+                    className={cn(
+                      "flex items-center shrink-0",
+                      transaction.type === "EXPENSE"
+                        ? "text-red-500"
+                        : "text-green-500"
+                    )}
+                  >
+                    {transaction.type === "EXPENSE" ? (
+                      <ArrowDownRight className="mr-1 h-4 w-4" />
+                    ) : (
+                      <ArrowUpRight className="mr-1 h-4 w-4" />
+                    )}
+                    ${Number(transaction.amount || 0).toFixed(2)}
                   </div>
                 </div>
               ))
@@ -144,7 +152,6 @@ export function DashboardOverview({ accounts, transactions }) {
         </CardContent>
       </Card>
 
-      {/* Expense Breakdown Card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-normal">
@@ -167,7 +174,9 @@ export function DashboardOverview({ accounts, transactions }) {
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
-                    label={({ name, value }) => `${name}: $${value.toFixed(2)}`}
+                    label={({ name, value }) =>
+                      `${name}: $${Number(value).toFixed(2)}`
+                    }
                   >
                     {pieChartData.map((entry, index) => (
                       <Cell
@@ -177,7 +186,7 @@ export function DashboardOverview({ accounts, transactions }) {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value) => `$${value.toFixed(2)}`}
+                    formatter={(value) => `$${Number(value).toFixed(2)}`}
                     contentStyle={{
                       backgroundColor: "hsl(var(--popover))",
                       border: "1px solid hsl(var(--border))",

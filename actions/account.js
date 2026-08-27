@@ -2,16 +2,16 @@
 
 import { connectToDatabase } from "@/lib/mongoose";
 import { revalidatePath } from "next/cache";
-import { User, Account, Transaction } from "@/models/allModels";
-
-const DEMO_USER_ID = "demo-user-id";
+import { Account, Transaction, User } from "@/models/allModels";
+import { checkUser } from "@/lib/checkUser";
+import { assertAccountAccess } from "@/actions/team";
 
 const serializeDecimal = (obj) => {
   const serialized = { ...obj };
-  if (obj.balance) {
+  if (obj.balance != null) {
     serialized.balance = parseFloat(obj.balance.toString());
   }
-  if (obj.amount) {
+  if (obj.amount != null) {
     serialized.amount = parseFloat(obj.amount.toString());
   }
   return serialized;
@@ -20,21 +20,59 @@ const serializeDecimal = (obj) => {
 export async function getAccountWithTransactions(accountId) {
   await connectToDatabase();
 
-  const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+  const user = await checkUser();
   if (!user) throw new Error("User not found");
 
-  const account = await Account.findOne({ _id: accountId, userId: user._id }).lean();
+  try {
+    await assertAccountAccess(user, accountId);
+  } catch {
+    return null;
+  }
+
+  const account = await Account.findById(accountId).lean();
   if (!account) return null;
 
-  const transactions = await Transaction.find({ accountId, userId: user._id })
-    .sort({ date: -1 })
+  // Include every transaction on this account (admin + all members)
+  const transactions = await Transaction.find({
+    $or: [{ accountId }, { accountId: String(accountId) }],
+  })
+    .sort({ createdAt: -1, date: -1 })
     .lean();
 
-  const transactionCount = await Transaction.countDocuments({ accountId, userId: user._id });
+  const userIds = [...new Set(transactions.map((t) => t.userId).filter(Boolean))];
+  const users = await User.find({ _id: { $in: userIds } })
+    .select("_id name email imageUrl")
+    .lean();
+  const userMap = Object.fromEntries(users.map((u) => [u._id, u]));
+
+  const serializedTransactions = transactions.map((tx) => {
+    const creator = userMap[tx.userId];
+    return {
+      ...serializeDecimal(tx),
+      createdBy: creator
+        ? {
+            _id: creator._id,
+            name: creator.name || creator.email,
+            email: creator.email,
+            imageUrl: creator.imageUrl || null,
+            isOwner: creator._id === account.userId,
+          }
+        : {
+            _id: tx.userId,
+            name: "Unknown",
+            email: "",
+            imageUrl: null,
+            isOwner: false,
+          },
+    };
+  });
+
+  const transactionCount = serializedTransactions.length;
 
   return {
     ...serializeDecimal(account),
-    transactions: transactions.map(serializeDecimal),
+    isShared: account.userId !== user._id,
+    transactions: serializedTransactions,
     _count: { transactions: transactionCount },
   };
 }
@@ -43,7 +81,7 @@ export async function bulkDeleteTransactions(transactionIds) {
   try {
     await connectToDatabase();
 
-    const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+    const user = await checkUser();
     if (!user) throw new Error("User not found");
 
     const transactions = await Transaction.find({
@@ -90,7 +128,7 @@ export async function updateDefaultAccount(accountId) {
   try {
     await connectToDatabase();
 
-    const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+    const user = await checkUser();
     if (!user) throw new Error("User not found");
 
     await Account.updateMany(

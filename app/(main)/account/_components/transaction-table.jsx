@@ -67,7 +67,7 @@ const RECURRING_INTERVALS = {
 export function TransactionTable({ transactions }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [sortConfig, setSortConfig] = useState({
-    field: "date",
+    field: "createdAt",
     direction: "desc",
   });
   const [searchTerm, setSearchTerm] = useState("");
@@ -84,7 +84,10 @@ export function TransactionTable({ transactions }) {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       result = result.filter((transaction) =>
-        transaction.description?.toLowerCase().includes(searchLower)
+        transaction.description?.toLowerCase().includes(searchLower) ||
+        transaction.createdBy?.name?.toLowerCase().includes(searchLower) ||
+        transaction.createdBy?.email?.toLowerCase().includes(searchLower) ||
+        transaction.category?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -108,6 +111,10 @@ export function TransactionTable({ transactions }) {
       switch (sortConfig.field) {
         case "date":
           comparison = new Date(a.date) - new Date(b.date);
+          break;
+        case "createdAt":
+          comparison =
+            new Date(a.createdAt || a.date) - new Date(b.createdAt || b.date);
           break;
         case "amount":
           comparison = a.amount - b.amount;
@@ -303,6 +310,7 @@ export function TransactionTable({ transactions }) {
                     ))}
                 </div>
               </TableHead>
+              <TableHead>By</TableHead>
               <TableHead>Description</TableHead>
               <TableHead
                 className="cursor-pointer"
@@ -340,7 +348,7 @@ export function TransactionTable({ transactions }) {
             {paginatedTransactions.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="text-center text-muted-foreground"
                 >
                   No transactions found
@@ -357,6 +365,33 @@ export function TransactionTable({ transactions }) {
                   </TableCell>
                   <TableCell>
                     {format(new Date(transaction.date), "PP")}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {transaction.createdBy?.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={transaction.createdBy.imageUrl}
+                          alt=""
+                          className="h-6 w-6 rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="h-6 w-6 rounded-full bg-slate-200 text-slate-600 text-xs flex items-center justify-center shrink-0">
+                          {(transaction.createdBy?.name || "?").charAt(0)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm truncate">
+                          {transaction.createdBy?.name || "Unknown"}
+                        </p>
+                        {transaction.createdBy &&
+                          !transaction.createdBy.isOwner && (
+                            <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                              Member
+                            </Badge>
+                          )}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>{transaction.description}</TableCell>
                   <TableCell className="capitalize">

@@ -4,9 +4,10 @@ import { connectToDatabase } from "@/lib/mongoose";
 import { revalidatePath } from "next/cache";
 import { checkUser } from "@/lib/checkUser";
 import { Account, Transaction } from "@/models/allModels";
+import { getAccessibleAccountIds } from "@/actions/team";
 
 const serializeTransaction = (obj) => {
-  const serialized = { ...obj._doc || obj };
+  const serialized = { ...(obj._doc || obj) };
   if (serialized.balance) {
     serialized.balance = parseFloat(serialized.balance.toString());
   }
@@ -22,13 +23,23 @@ export async function getUserAccounts() {
   const user = await checkUser();
   if (!user) throw new Error("User not found");
 
-  const accounts = await Account.find({ userId: user._id }).sort({ createdAt: -1 }).lean();
+  const { personalIds, sharedIds } = await getAccessibleAccountIds(user);
+  const allIds = [...new Set([...personalIds, ...sharedIds])];
+
+  const accounts = await Account.find({ _id: { $in: allIds } })
+    .sort({ createdAt: -1 })
+    .lean();
 
   const accountsWithCount = await Promise.all(
     accounts.map(async (account) => {
-      const txCount = await Transaction.countDocuments({ accountId: account._id });
+      const txCount = await Transaction.countDocuments({
+        accountId: account._id,
+      });
+      const isShared = account.userId !== user._id;
       return {
         ...serializeTransaction(account),
+        isShared,
+        ownership: isShared ? "SHARED" : "PERSONAL",
         _count: { transactions: txCount },
       };
     })
@@ -50,7 +61,8 @@ export async function createAccount(data) {
 
   const existingAccounts = await Account.find({ userId: user._id });
 
-  const shouldBeDefault = existingAccounts.length === 0 ? true : data.isDefault;
+  const shouldBeDefault =
+    existingAccounts.length === 0 ? true : data.isDefault;
 
   if (shouldBeDefault) {
     await Account.updateMany(
@@ -64,9 +76,11 @@ export async function createAccount(data) {
     balance: balanceFloat,
     userId: user._id,
     isDefault: shouldBeDefault,
+    teamId: null,
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/team");
 
   return {
     success: true,
@@ -80,9 +94,18 @@ export async function getDashboardData() {
   const user = await checkUser();
   if (!user) throw new Error("User not found");
 
-  const transactions = await Transaction.find({ userId: user._id })
-    .sort({ date: -1 })
+  const { personalIds, sharedIds } = await getAccessibleAccountIds(user);
+  const allIds = [...new Set([...personalIds, ...sharedIds].map(String))];
+
+  const transactions = await Transaction.find({
+    accountId: { $in: allIds },
+  })
+    .sort({ createdAt: -1, date: -1 })
     .lean();
 
-  return transactions.map(serializeTransaction);
+  return transactions.map((tx) => ({
+    ...serializeTransaction(tx),
+    accountId: String(tx.accountId),
+    amount: parseFloat(tx.amount?.toString?.() || tx.amount || 0),
+  }));
 }
