@@ -3,7 +3,7 @@
 
 # 💸 Welth – Your AI-Powered Personal Finance Manager
 
-🌐 **Live Demo**: [https://welth-finance-ayushmishra-zeta.vercel.app](https://welth-finance-ayushmishra-zeta.vercel.app)
+🌐 **Live Demo**: [https://welth-finance-iota.vercel.app/](https://welth-finance-iota.vercel.app/)
 
 ---
 
@@ -15,14 +15,23 @@
 
 ## 🚀 Features
 
+* 🔐 **Google OAuth sign-in** — Auth.js session-based auth with encrypted cookie sessions
+* 🔄 **Access & refresh tokens** — Google access token stored server-side with automatic refresh on expiry
+* 🪟 **Sign-in dialog** — modal Google-only login from header, hero, and invite flows
+* 👤 **User sync** — Google accounts synced to MongoDB (`googleId`, email, name, avatar)
 * ✅ Add, edit, and delete transactions
-* 🔁 Recurring income and expense entries
+* 📸 Receipt scanning with AI (Gemini) for auto-filled transaction details
+* 🔁 Recurring income and expense entries (Inngest cron jobs)
 * 📈 Monthly financial reports with AI-generated insights
-* 🧠 Integration with Google Gemini AI
+* 🧠 Google Gemini integration for spending insights and receipt parsing
 * 📧 Email reports and alerts via Resend
 * 🚨 Budget monitoring with smart alert triggers
-* 📊 Category-wise breakdowns and charts
-* 🎨 Sleek and responsive UI (Next.js + shadcn/ui)
+* 📊 Category-wise breakdowns, charts, and account-level analytics
+* 👥 **Team collaboration** — create teams, invite teammates, accept/decline invites
+* 🏦 **Shared accounts** — team members spend from admin balance with monthly limits
+* 🛡️ **Member permissions** — admin controls what each teammate can access
+* 📋 **Transaction attribution** — “By” column shows who created each spend on shared accounts
+* 🎨 Responsive UI built with Next.js 15 + shadcn/ui
 
 ---
 
@@ -40,18 +49,47 @@
 
 ```
 /app
-  /dashboard         → Main dashboard page
-  /transaction       → Add/view transactions
-  /emails            → Email templates (alerts, reports)
-  /api               → API routes for DB and AI actions
-/lib
-  mongoose.js        → MongoDB connection logic
+  /(main)                    → Protected app routes (auth required)
+    /dashboard               → Dashboard, budgets, accounts overview
+    /account/[id]            → Account detail, charts, transactions
+    /transaction/create      → Add transaction + receipt scanner
+    /team                    → Team admin workspace
+  /sign-in                   → Google sign-in page
+  /sign-up                   → Google sign-up page
+  /invite/[token]            → Accept or decline team invites
+  /api
+    /auth/[...nextauth]      → Auth.js OAuth handlers
+    /inngest                 → Inngest webhook endpoint
+    /seed                    → Demo data seeding
 /actions
-  send-email.js      → Sends emails via Resend
+  account.js                 → Account CRUD
+  budget.js                  → Budget management
+  dashboard.js               → Dashboard data loaders
+  team.js                    → Teams, invites, permissions, shared spend
+  transaction.js             → Transaction CRUD
+  send-email.js              → Resend email actions
+  seed.js                    → Seed demo transactions
+/auth.js                     → Auth.js config (Google OAuth, token refresh)
+/middleware.js               → Route protection + session checks
+/components
+  sign-in-dialog.jsx         → Google sign-in modal
+  auth-session-watcher.jsx   → Handles expired refresh tokens
+  providers.jsx              → SessionProvider wrapper
+  user-avatar.jsx            → Shared avatar component
+  /team                      → Team sidebar, admin panel, invite drawers
+  /ui                        → shadcn/ui primitives (dialog, drawer, etc.)
+/emails
+  template.jsx               → Monthly report & budget alert templates
+  invite.jsx                 → Team invite email template
+/lib
+  checkUser.js               → Sync session user → MongoDB
+  getAccessToken.js          → Server helper for Google access token
+  mongoose.js                → MongoDB connection
+  /inngest                   → Background jobs (reports, recurring txns, alerts)
 /models
-  allModels.js       → Schemas: User, Account, Budget, Transaction
-/inngest
-  functions.js       → Monthly reports, recurring txns, budget alerts
+  allModels.js               → User, Account, Transaction, Budget, Team, TeamMember
+/hooks
+  use-fetch.js               → Client-side server action hook
 ```
 
 ---
