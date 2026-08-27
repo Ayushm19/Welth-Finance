@@ -2,8 +2,14 @@
 
 import React, { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Show,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/nextjs";
 import { Button } from "./ui/button";
-import { PenBox, LayoutDashboard } from "lucide-react";
+import { PenBox, LayoutDashboard, UsersRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -11,6 +17,7 @@ const Header = () => {
   const router = useRouter();
   const [isPendingDashboard, startDashboardTransition] = useTransition();
   const [isPendingTransaction, startTransactionTransition] = useTransition();
+  const [isPendingTeam, startTeamTransition] = useTransition();
 
   const handleDashboardClick = () => {
     startDashboardTransition(() => {
@@ -21,6 +28,12 @@ const Header = () => {
   const handleTransactionClick = () => {
     startTransactionTransition(() => {
       router.push("/transaction/create");
+    });
+  };
+
+  const handleTeamClick = () => {
+    startTeamTransition(() => {
+      router.push("/team");
     });
   };
 
@@ -38,28 +51,57 @@ const Header = () => {
         </Link>
 
         <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            className="flex items-center gap-2"
-            onClick={handleDashboardClick}
-            disabled={isPendingDashboard}
-          >
-            <LayoutDashboard size={18} />
-            <span className="hidden md:inline">
-              {isPendingDashboard ? "Loading..." : "Dashboard"}
-            </span>
-          </Button>
+          <Show when="signed-in">
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+              onClick={handleDashboardClick}
+              disabled={isPendingDashboard}
+            >
+              <LayoutDashboard size={18} />
+              <span className="hidden md:inline">
+                {isPendingDashboard ? "Loading..." : "Dashboard"}
+              </span>
+            </Button>
 
-          <Button
-            className="flex items-center gap-2"
-            onClick={handleTransactionClick}
-            disabled={isPendingTransaction}
-          >
-            <PenBox size={18} />
-            <span className="hidden md:inline">
-              {isPendingTransaction ? "Loading..." : "Add Transaction"}
-            </span>
-          </Button>
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+              onClick={handleTeamClick}
+              disabled={isPendingTeam}
+            >
+              {isPendingTeam ? (
+                <span className="h-4 w-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+              ) : (
+                <UsersRound size={18} />
+              )}
+              <span className="hidden md:inline">
+                {isPendingTeam ? "Opening..." : "Team"}
+              </span>
+            </Button>
+
+            <Button
+              className="flex items-center gap-2"
+              onClick={handleTransactionClick}
+              disabled={isPendingTransaction}
+            >
+              <PenBox size={18} />
+              <span className="hidden md:inline">
+                {isPendingTransaction ? "Loading..." : "Add Transaction"}
+              </span>
+            </Button>
+
+            <UserButton />
+          </Show>
+
+          <Show when="signed-out">
+            <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+              <Button variant="outline">Sign In</Button>
+            </SignInButton>
+            <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
+              <Button>Get Started</Button>
+            </SignUpButton>
+          </Show>
         </div>
       </nav>
     </header>

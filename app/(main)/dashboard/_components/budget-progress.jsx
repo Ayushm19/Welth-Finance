@@ -17,7 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateBudget } from "@/actions/budget";
 
-export function BudgetProgress({ initialBudget, currentExpenses }) {
+export function BudgetProgress({
+  initialBudget,
+  currentExpenses,
+  hasAccount = true,
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [newBudget, setNewBudget] = useState(
     initialBudget?.amount?.toString() || ""
@@ -62,6 +66,24 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
       toast.error(error.message || "Failed to update budget");
     }
   }, [error]);
+
+  if (!hasAccount) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Monthly Budget</CardTitle>
+          <CardDescription>
+            Create an account first to set and track your monthly budget.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Add a personal account below, then come back here to set a budget.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -127,7 +149,6 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
             <Progress
               value={percentUsed}
               extraStyles={`${
-                // add to Progress component
                 percentUsed >= 90
                   ? "bg-red-500"
                   : percentUsed >= 75

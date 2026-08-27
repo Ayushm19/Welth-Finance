@@ -28,8 +28,19 @@ import { Switch } from "@/components/ui/switch";
 import { createAccount } from "@/actions/dashboard";
 import { accountSchema } from "@/app/lib/schema";
 
-export function CreateAccountDrawer({ children }) {
-  const [open, setOpen] = useState(false);
+export function CreateAccountDrawer({
+  children,
+  open: controlledOpen,
+  onOpenChange,
+}) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (value) => {
+    if (!isControlled) setUncontrolledOpen(value);
+    onOpenChange?.(value);
+  };
+
   const {
     register,
     handleSubmit,
@@ -43,7 +54,7 @@ export function CreateAccountDrawer({ children }) {
       name: "",
       type: "CURRENT",
       balance: "",
-      isDefault: false,
+      isDefault: true,
     },
   });
 
@@ -74,7 +85,7 @@ export function CreateAccountDrawer({ children }) {
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>{children}</DrawerTrigger>
+      {children ? <DrawerTrigger asChild>{children}</DrawerTrigger> : null}
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>Create New Account</DrawerTitle>

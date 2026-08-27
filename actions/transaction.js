@@ -1,12 +1,14 @@
 "use server";
 
 import { connectToDatabase } from "@/lib/mongoose";
-import { Transaction, User, Account } from "@/models/allModels";
+import { Transaction, Account } from "@/models/allModels";
 import { revalidatePath } from "next/cache";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { checkUser } from "@/lib/checkUser";
+import { assertAccountAccess } from "@/actions/team";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const DEMO_USER_ID = "demo-user-id";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
 const serializeAmount = (obj) => ({
   ...obj.toObject(),
@@ -35,11 +37,30 @@ function calculateNextRecurringDate(startDate, interval) {
 export async function createTransaction(data) {
   await connectToDatabase();
 
-  const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+  const user = await checkUser();
   if (!user) throw new Error("User not found");
 
-  const account = await Account.findOne({ _id: data.accountId, userId: user._id });
-  if (!account) throw new Error("Account not found");
+  const access = await assertAccountAccess(user, data.accountId, {
+    forExpense: data.type === "EXPENSE",
+  });
+  const { account, membership } = access;
+
+  if (
+    data.type === "EXPENSE" &&
+    access.access === "SHARED" &&
+    access.monthlySpendLimit != null
+  ) {
+    const nextTotal = (access.spentThisMonth || 0) + Number(data.amount);
+    if (nextTotal > access.monthlySpendLimit) {
+      throw new Error(
+        `Monthly spend limit exceeded. Limit: $${access.monthlySpendLimit.toFixed(2)}, already spent: $${(access.spentThisMonth || 0).toFixed(2)}`
+      );
+    }
+  }
+
+  if (data.type === "INCOME" && access.access === "SHARED") {
+    throw new Error("Only the account owner can add income to shared accounts");
+  }
 
   const balanceChange = data.type === "EXPENSE" ? -data.amount : data.amount;
   const newBalance = parseFloat(account.balance.toString()) + balanceChange;
@@ -47,6 +68,7 @@ export async function createTransaction(data) {
   const transaction = new Transaction({
     ...data,
     userId: user._id,
+    teamId: membership?.teamId || account.teamId || null,
     nextRecurringDate:
       data.isRecurring && data.recurringInterval
         ? calculateNextRecurringDate(data.date, data.recurringInterval)
@@ -66,7 +88,7 @@ export async function createTransaction(data) {
 export async function getTransaction(id) {
   await connectToDatabase();
 
-  const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+  const user = await checkUser();
   if (!user) throw new Error("User not found");
 
   const transaction = await Transaction.findOne({ _id: id, userId: user._id });
@@ -78,7 +100,7 @@ export async function getTransaction(id) {
 export async function updateTransaction(id, data) {
   await connectToDatabase();
 
-  const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+  const user = await checkUser();
   if (!user) throw new Error("User not found");
 
   const originalTransaction = await Transaction.findOne({ _id: id, userId: user._id });
@@ -114,7 +136,7 @@ export async function updateTransaction(id, data) {
 export async function getUserTransactions(query = {}) {
   await connectToDatabase();
 
-  const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+  const user = await checkUser();
   if (!user) throw new Error("User not found");
 
   const transactions = await Transaction.find({ userId: user._id, ...query })
@@ -132,7 +154,13 @@ export async function getUserTransactions(query = {}) {
 
 export async function scanReceipt(file) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error(
+        "Missing GEMINI_API_KEY. Add a valid key from https://aistudio.google.com/apikey"
+      );
+    }
+
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
     const arrayBuffer = await file.arrayBuffer();
     const base64String = Buffer.from(arrayBuffer).toString("base64");
 
@@ -172,6 +200,15 @@ export async function scanReceipt(file) {
     };
   } catch (error) {
     console.error("Error scanning receipt:", error);
-    throw new Error("Failed to scan receipt");
+    const message = String(error?.message || error);
+    if (
+      message.includes("API_KEY_INVALID") ||
+      message.includes("API key not valid")
+    ) {
+      throw new Error(
+        "Gemini API key is invalid. Create a new key at https://aistudio.google.com/apikey and set GEMINI_API_KEY in .env, then restart the server."
+      );
+    }
+    throw new Error(message || "Failed to scan receipt");
   }
 }

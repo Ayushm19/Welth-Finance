@@ -17,7 +17,7 @@ import { updateDefaultAccount } from "@/actions/account";
 import { toast } from "sonner";
 
 export function AccountCard({ account }) {
-  const { name, type, balance, _id, isDefault } = account;
+  const { name, type, balance, _id, isDefault, isShared } = account;
 
   const {
     loading: updateDefaultLoading,
@@ -27,11 +27,16 @@ export function AccountCard({ account }) {
   } = useFetch(updateDefaultAccount);
 
   const handleDefaultChange = async (event) => {
-    event.preventDefault(); // Prevent navigation
+    event.preventDefault();
+
+    if (isShared) {
+      toast.warning("Shared accounts cannot be set as your default");
+      return;
+    }
 
     if (isDefault) {
       toast.warning("You need atleast 1 default account");
-      return; // Don't allow toggling off the default account
+      return;
     }
 
     await updateDefaultFn(_id);
@@ -53,14 +58,19 @@ export function AccountCard({ account }) {
     <Card className="hover:shadow-md transition-shadow group relative">
       <Link href={`/account/${_id}`}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium capitalize">
-            {name}
-          </CardTitle>
-          <Switch
-            checked={isDefault}
-            onClick={handleDefaultChange}
-            disabled={updateDefaultLoading}
-          />
+          <div className="space-y-1">
+            <CardTitle className="text-sm font-medium capitalize">
+              {name}
+            </CardTitle>
+            {isShared && <Badge variant="secondary">Shared</Badge>}
+          </div>
+          {!isShared && (
+            <Switch
+              checked={isDefault}
+              onClick={handleDefaultChange}
+              disabled={updateDefaultLoading}
+            />
+          )}
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
