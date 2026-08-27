@@ -1,8 +1,10 @@
 import React from "react";
-import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 
 const MainLayout = async ({ children }) => {
-  await auth.protect();
+  const session = await auth();
+  if (!session?.user) redirect("/sign-in");
 
   return <div className="container mx-auto my-32">{children}</div>;
 };

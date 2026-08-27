@@ -5,6 +5,7 @@ import { ArrowLeft, UsersRound, Sparkles, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateTeamDrawer } from "@/components/team/create-team-drawer";
 import { TeamAdminPanel } from "@/components/team/team-admin-panel";
+import UserAvatar from "@/components/user-avatar";
 
 export function TeamWorkspace({ data }) {
   const joinedCount = data.joinedTeams?.length || 0;
@@ -154,18 +155,12 @@ export function TeamWorkspace({ data }) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      {t.admin?.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={t.admin.imageUrl}
-                          alt=""
-                          className="h-11 w-11 rounded-full object-cover ring-2 ring-blue-50"
-                        />
-                      ) : (
-                        <div className="h-11 w-11 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold">
-                          {(t.admin?.name || "A").charAt(0)}
-                        </div>
-                      )}
+                      <UserAvatar
+                        name={t.admin?.name}
+                        imageUrl={t.admin?.imageUrl}
+                        size={44}
+                        className="ring-2 ring-blue-50"
+                      />
                       <div className="min-w-0">
                         <h3 className="font-semibold truncate text-slate-900">
                           {t.teamName}

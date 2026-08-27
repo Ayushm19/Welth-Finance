@@ -54,6 +54,7 @@ import { bulkDeleteTransactions } from "@/actions/account";
 import useFetch from "@/hooks/use-fetch";
 import { BarLoader } from "react-spinners";
 import { useRouter } from "next/navigation";
+import UserAvatar from "@/components/user-avatar";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -368,18 +369,11 @@ export function TransactionTable({ transactions }) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 min-w-0">
-                      {transaction.createdBy?.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={transaction.createdBy.imageUrl}
-                          alt=""
-                          className="h-6 w-6 rounded-full object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="h-6 w-6 rounded-full bg-slate-200 text-slate-600 text-xs flex items-center justify-center shrink-0">
-                          {(transaction.createdBy?.name || "?").charAt(0)}
-                        </div>
-                      )}
+                      <UserAvatar
+                        name={transaction.createdBy?.name || "Unknown"}
+                        imageUrl={transaction.createdBy?.imageUrl}
+                        size={24}
+                      />
                       <div className="min-w-0">
                         <p className="text-sm truncate">
                           {transaction.createdBy?.name || "Unknown"}

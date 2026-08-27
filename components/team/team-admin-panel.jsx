@@ -17,22 +17,16 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { InviteTeammateDrawer } from "@/components/team/invite-teammate-drawer";
 import { EditMemberPermissionsDrawer } from "@/components/team/edit-member-permissions-drawer";
+import UserAvatar from "@/components/user-avatar";
 
 function Avatar({ name, imageUrl }) {
-  if (imageUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return (
-      <img
-        src={imageUrl}
-        alt=""
-        className="h-11 w-11 rounded-full object-cover ring-2 ring-white shadow-sm"
-      />
-    );
-  }
   return (
-    <div className="h-11 w-11 rounded-full bg-gradient-to-br from-blue-500 to-sky-400 text-white flex items-center justify-center text-sm font-semibold shadow-sm">
-      {(name || "A").charAt(0).toUpperCase()}
-    </div>
+    <UserAvatar
+      name={name}
+      imageUrl={imageUrl}
+      size={44}
+      className="ring-2 ring-white shadow-sm"
+    />
   );
 }
 

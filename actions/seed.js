@@ -42,7 +42,7 @@ export async function seedTransactions() {
   try {
     await connectToDatabase();
 
-    const user = await User.findOne({ clerkUserId: DEMO_USER_ID });
+    const user = await User.findOne({ googleId: DEMO_USER_ID });
     if (!user) throw new Error("Demo user not found");
 
     const account = await Account.findOne({ userId: user._id, isDefault: true });

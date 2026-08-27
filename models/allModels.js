@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: () => new mongoose.Types.ObjectId().toString(),
     },
-    clerkUserId: { type: String, unique: true, required: true },
+    googleId: { type: String, unique: true, sparse: true, required: true },
     email: { type: String, unique: true, required: true },
     name: String,
     imageUrl: String,

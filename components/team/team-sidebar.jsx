@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useTransition } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
+import UserAvatar from "@/components/user-avatar";
 import {
   Users,
   UserPlus,
@@ -29,23 +29,7 @@ import { EditMemberPermissionsDrawer } from "@/components/team/edit-member-permi
 import { CreateTeamDrawer } from "@/components/team/create-team-drawer";
 
 function AdminAvatar({ name, imageUrl }) {
-  if (imageUrl) {
-    return (
-      <Image
-        src={imageUrl}
-        alt={name || "Admin"}
-        width={40}
-        height={40}
-        className="h-10 w-10 rounded-full object-cover"
-      />
-    );
-  }
-
-  return (
-    <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold">
-      {(name || "A").charAt(0).toUpperCase()}
-    </div>
-  );
+  return <UserAvatar name={name} imageUrl={imageUrl} size={40} />;
 }
 
 export function TeamSidebar({ data }) {
