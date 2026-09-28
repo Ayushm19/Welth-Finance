@@ -8,7 +8,7 @@ import { checkUser } from "@/lib/checkUser";
 import { assertAccountAccess } from "@/actions/team";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 const serializeAmount = (obj) => ({
   ...obj.toObject(),
@@ -188,8 +188,8 @@ export async function scanReceipt(file) {
 
     const response = await result.response;
     const text = response.text();
-    const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
-    const data = JSON.parse(cleanedText);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const data = JSON.parse(jsonMatch ? jsonMatch[0] : text);
 
     return {
       amount: parseFloat(data.amount),
