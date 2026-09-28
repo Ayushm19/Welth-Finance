@@ -3,12 +3,10 @@
 import { connectToDatabase } from "@/lib/mongoose";
 import { Transaction, Account } from "@/models/allModels";
 import { revalidatePath } from "next/cache";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { checkUser } from "@/lib/checkUser";
 import { assertAccountAccess } from "@/actions/team";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+const GROQ_MODEL = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
 
 const serializeAmount = (obj) => ({
   ...obj.toObject(),
@@ -154,13 +152,12 @@ export async function getUserTransactions(query = {}) {
 
 export async function scanReceipt(file) {
   try {
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.GROQ_API_KEY) {
       throw new Error(
-        "Missing GEMINI_API_KEY. Add a valid key from https://aistudio.google.com/apikey"
+        "Missing GROQ_API_KEY. Add a free key from https://console.groq.com/keys"
       );
     }
 
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
     const arrayBuffer = await file.arrayBuffer();
     const base64String = Buffer.from(arrayBuffer).toString("base64");
 
@@ -173,21 +170,39 @@ export async function scanReceipt(file) {
         "merchantName": "string",
         "category": "string"
       }
-      If it's not a receipt, return an empty object.
+      If it's not a receipt, return an empty object. Only return raw JSON, no markdown, no explanation.
     `;
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: base64String,
-          mimeType: file.type,
-        },
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       },
-      prompt,
-    ]);
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: { url: `data:${file.type};base64,${base64String}` },
+              },
+            ],
+          },
+        ],
+      }),
+    });
 
-    const response = await result.response;
-    const text = response.text();
+    if (!res.ok) {
+      const errorBody = await res.text();
+      throw new Error(`Groq API error (${res.status}): ${errorBody}`);
+    }
+
+    const result = await res.json();
+    const text = result.choices[0].message.content;
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const data = JSON.parse(jsonMatch ? jsonMatch[0] : text);
 
@@ -200,15 +215,6 @@ export async function scanReceipt(file) {
     };
   } catch (error) {
     console.error("Error scanning receipt:", error);
-    const message = String(error?.message || error);
-    if (
-      message.includes("API_KEY_INVALID") ||
-      message.includes("API key not valid")
-    ) {
-      throw new Error(
-        "Gemini API key is invalid. Create a new key at https://aistudio.google.com/apikey and set GEMINI_API_KEY in .env, then restart the server."
-      );
-    }
-    throw new Error(message || "Failed to scan receipt");
+    throw new Error(String(error?.message || error) || "Failed to scan receipt");
   }
 }
